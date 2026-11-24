@@ -6,6 +6,7 @@
 mod scrcpy;
 mod config;
 mod apps;
+mod files;
 mod device;
 mod wireless;
 mod assets;
@@ -392,6 +393,14 @@ fn main() {
             session::disconnect_all,
             apps::list_device_apps,
             apps::open_app,
+            files::list_device_files,
+            files::make_device_dir,
+            files::rename_device_file,
+            files::delete_device_files,
+            files::paste_device_files,
+            files::pull_device_files,
+            files::push_device_files,
+            files::cancel_file_transfer,
             session::list_sessions,
             session::get_session_log,
             session::clear_session_log,

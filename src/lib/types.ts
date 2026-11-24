@@ -244,6 +244,36 @@ export interface OpenAppResult {
   notice: UserMessage | null;
 }
 
+// ── 设备文件浏览（与 src-tauri/src/files.rs 对应）──
+
+export interface FileEntry {
+  name: string;
+  /** 目录，或指向目录的符号链接 */
+  isDir: boolean;
+  isLink: boolean;
+  size: number;
+  modified: string;
+  mode: string;
+}
+
+export interface FileListing {
+  path: string;
+  entries: FileEntry[];
+}
+
+export interface FileOpFailure {
+  name: string;
+  error: UserError;
+}
+
+export interface FileOpOutcome {
+  ok: number;
+  failed: FileOpFailure[];
+  /** 因目标已存在而被跳过的来源；确认覆盖后带 overwrite 重发 */
+  conflicts: string[];
+  canceled: boolean;
+}
+
 export interface OverrideEntry {
   enabled: boolean;
   values: Record<string, unknown>;

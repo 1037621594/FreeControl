@@ -112,6 +112,16 @@ pub mod codes {
     pub const APPS_FALLBACK_NEW_WINDOW: &str = "apps.fallbackNewWindow";
     pub const APPS_HEADLESS_NOTICE: &str = "apps.headlessNotice";
 
+    pub const FILES_LIST_FAILED: &str = "files.listFailed";
+    pub const FILES_PATH_INVALID: &str = "files.pathInvalid";
+    pub const FILES_NAME_INVALID: &str = "files.nameInvalid";
+    pub const FILES_NAME_EXISTS: &str = "files.nameExists";
+    pub const FILES_PROTECTED: &str = "files.protectedPath";
+    pub const FILES_OP_FAILED: &str = "files.opFailed";
+    pub const FILES_TRANSFER_FAILED: &str = "files.transferFailed";
+    pub const FILES_LOCAL_MISSING: &str = "files.localMissing";
+    pub const FILES_INTO_ITSELF: &str = "files.intoItself";
+
     pub const ENV_INVALID_DIR: &str = "environment.invalidDir";
     pub const ENV_DIR_LOCKED: &str = "environment.dirLocked";
 

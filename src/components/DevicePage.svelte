@@ -53,6 +53,7 @@
   import DeviceSortSelect from './DeviceSortSelect.svelte';
   import DeviceIssueBadge from './DeviceIssueBadge.svelte';
   import AppListDialog from './AppListDialog.svelte';
+  import FileBrowserDialog from './FileBrowserDialog.svelte';
   import { moveToIndex, sameOrder, flippedDirection } from '../lib/deviceSort';
   import { segSlide } from '../lib/segSlide';
   import type {
@@ -80,6 +81,7 @@
     GripVertical,
     LayoutList,
     LayoutGrid,
+    FolderOpen,
     StretchHorizontal,
   } from 'lucide-svelte';
 
@@ -215,6 +217,20 @@
 
   function openAppList(id: string): void {
     appListDeviceId = id;
+  }
+
+  // ── 文件浏览 ──
+  // 可用性与应用列表一致（都要运行环境就绪、设备在线或可建链），提示文案按文件浏览自己的键给。
+  let filesDeviceId: string | null = null;
+
+  function filesBlockedKey(reason: MessageKey | ''): MessageKey | '' {
+    if (reason === 'device.appListBlockedEnv') return 'device.filesBlockedEnv';
+    if (reason === 'device.appListBlockedOffline') return 'device.filesBlockedOffline';
+    return reason;
+  }
+
+  function openFiles(id: string): void {
+    filesDeviceId = id;
   }
 
   /** 在线但未连接的设备数（工具条据此禁用「全部连接」，不留点了没反应的按钮）。 */
@@ -1045,6 +1061,7 @@
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
       {@const appListReason = appListBlockedReason(d, s, $envStatus)}
+      {@const filesReason = filesBlockedKey(appListReason)}
       {@const paramsOn = isOverrideActive(ovById[d.id])}
       <div
         class="dev-card"
@@ -1253,6 +1270,34 @@
                 </button>
               </span>
             {/if}
+            {#if compactView}
+              <span
+                class="tip-host"
+                use:tip={filesReason ? $t(filesReason) : $t('device.filesTip')}
+              >
+                <button
+                  class="btn sm ghost"
+                  aria-label={$t('device.files')}
+                  disabled={!!filesReason}
+                  on:click|stopPropagation={() => openFiles(d.id)}
+                >
+                  <FolderOpen />
+                </button>
+              </span>
+            {:else}
+              <span
+                class="tip-host"
+                use:tip={filesReason ? $t(filesReason) : $t('device.filesTip')}
+              >
+                <button
+                  class="btn sm ghost"
+                  disabled={!!filesReason}
+                  on:click|stopPropagation={() => openFiles(d.id)}
+                >
+                  <FolderOpen /> {$t('device.files')}
+                </button>
+              </span>
+            {/if}
             {#if !compactView && sess}
               <button
                 class="btn sm ghost"
@@ -1335,4 +1380,9 @@
 <!-- 应用列表同样按需挂载：缓存与排序在 store 里，弹窗关闭不会丢。 -->
 {#if appListDeviceId}
   <AppListDialog deviceId={appListDeviceId} on:close={() => (appListDeviceId = null)} />
+{/if}
+
+<!-- 文件浏览同样按需挂载：每台设备上次浏览的目录与文件剪贴板在 lib/files 里，弹窗关闭不会丢。 -->
+{#if filesDeviceId}
+  <FileBrowserDialog deviceId={filesDeviceId} on:close={() => (filesDeviceId = null)} />
 {/if}

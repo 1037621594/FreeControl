@@ -228,7 +228,7 @@ fn finish(
 
 /// 设备与本次应使用的连接标识：已连接时用运行记录的标识（无线端口可能被重新解析过），
 /// 在线时复核实际列表并按需建链，离线的无线设备先建链。
-fn device_and_connection(app: &AppHandle, device_id: &str) -> Result<(Device, String), UserError> {
+pub(crate) fn device_and_connection(app: &AppHandle, device_id: &str) -> Result<(Device, String), UserError> {
     let state = app.state::<AppState>();
     let device = session::find_device(&state, device_id)?;
     if let Some(record) = session::active_records(&state, device_id).into_iter().next() {
@@ -269,7 +269,7 @@ fn device_and_connection(app: &AppHandle, device_id: &str) -> Result<(Device, St
     }
 }
 
-fn environment_dir(app: &AppHandle) -> Result<PathBuf, UserError> {
+pub(crate) fn environment_dir(app: &AppHandle) -> Result<PathBuf, UserError> {
     let dir = scrcpy::scrcpy_dir(app)
         .map_err(|e| UserError::new(codes::SESSION_ENVIRONMENT_NOT_READY).with_detail(e))?;
     let missing = assets::missing_bins(&dir);

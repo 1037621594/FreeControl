@@ -13,6 +13,8 @@ import type {
   DeviceStatusPayload,
   DiscoveredDevice,
   EnvStatus,
+  FileListing,
+  FileOpOutcome,
   InstallOutcome,
   JoinRequest,
   OpenAppRequest,
@@ -156,6 +158,44 @@ export const listDeviceApps = (deviceId: string): Promise<AppEntry[]> =>
 /** 新窗口 / 当前窗口打开应用；`--start-app` 只在本次启动生效。 */
 export const openApp = (request: OpenAppRequest): Promise<OpenAppResult> =>
   invoke('open_app', { request });
+
+// ── 设备文件浏览 ──
+
+export const listDeviceFiles = (deviceId: string, path: string): Promise<FileListing> =>
+  invoke('list_device_files', { deviceId, path });
+export const makeDeviceDir = (deviceId: string, parent: string, name: string): Promise<void> =>
+  invoke('make_device_dir', { deviceId, parent, name });
+export const renameDeviceFile = (
+  deviceId: string,
+  path: string,
+  newName: string,
+): Promise<void> => invoke('rename_device_file', { deviceId, path, newName });
+export const deleteDeviceFiles = (deviceId: string, paths: string[]): Promise<FileOpOutcome> =>
+  invoke('delete_device_files', { deviceId, paths });
+/** 设备内复制 / 移动；同名目标默认不覆盖，命中的来源在返回值 `conflicts` 里。 */
+export const pasteDeviceFiles = (request: {
+  deviceId: string;
+  sources: string[];
+  destDir: string;
+  mode: 'copy' | 'move';
+  overwrite: boolean;
+}): Promise<FileOpOutcome> => invoke('paste_device_files', { request });
+/** 设备 → 电脑。 */
+export const pullDeviceFiles = (request: {
+  deviceId: string;
+  paths: string[];
+  localDir: string;
+  overwrite: boolean;
+}): Promise<FileOpOutcome> => invoke('pull_device_files', { request });
+/** 电脑 → 设备。 */
+export const pushDeviceFiles = (request: {
+  deviceId: string;
+  localPaths: string[];
+  destDir: string;
+  overwrite: boolean;
+}): Promise<FileOpOutcome> => invoke('push_device_files', { request });
+export const cancelFileTransfer = (deviceId: string): Promise<void> =>
+  invoke('cancel_file_transfer', { deviceId });
 
 // ── 运行环境获取（Group 4 / tasks 4.1–4.9）──
 

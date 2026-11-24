@@ -16,3 +16,4 @@ src-tauri/gen/
 
 # OpenSpec 规格目录：独立仓库，主库递归忽略其全部内容
 openspec/
+/.idea/
