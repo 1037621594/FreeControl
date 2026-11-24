@@ -122,6 +122,10 @@ pub mod codes {
     pub const FILES_LOCAL_MISSING: &str = "files.localMissing";
     pub const FILES_INTO_ITSELF: &str = "files.intoItself";
 
+    pub const CONTROL_MAP_INVALID: &str = "control.mapInvalid";
+    pub const CONTROL_KEY_UNSUPPORTED: &str = "control.keyUnsupported";
+    pub const CONTROL_KEY_DUPLICATE: &str = "control.keyDuplicate";
+
     pub const ENV_INVALID_DIR: &str = "environment.invalidDir";
     pub const ENV_DIR_LOCKED: &str = "environment.dirLocked";
 

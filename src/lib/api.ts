@@ -5,6 +5,7 @@ import type {
   AppUpdateCheck,
   AppUpdateOutcome,
   AppUpdateProgress,
+  BarContext,
   CompatStatus,
   ConnectRequest,
   ConnectResult,
@@ -196,6 +197,30 @@ export const pushDeviceFiles = (request: {
 }): Promise<FileOpOutcome> => invoke('push_device_files', { request });
 export const cancelFileTransfer = (deviceId: string): Promise<void> =>
   invoke('cancel_file_transfer', { deviceId });
+
+// ── 投屏控制条与手柄键位（src-tauri/src/controlbar.rs）──
+
+export const EVENT_GAMEPAD_CHANGED = 'control-gamepad-changed';
+export const EVENT_OPEN_GAMEPAD_SETTINGS = 'open-gamepad-settings';
+
+/** 控制条窗口自查它服务的设备（窗口标签里带 scrcpy 进程号）。 */
+export const barContext = (): Promise<BarContext> => invoke('bar_context');
+/** 当前开启了手柄模式的设备 id。 */
+export const getGamepadModes = (): Promise<string[]> => invoke('get_gamepad_modes');
+/** 当前平台是否支持控制条与手柄键位（目前只有 Windows）。 */
+export const getControlSupport = (): Promise<boolean> => invoke('get_control_support');
+export const setGamepadMode = (deviceId: string, on: boolean): Promise<void> =>
+  invoke('set_gamepad_mode', { deviceId, on });
+/** 导航键：`back` / `home` / `recents`。 */
+export const sendNavKey = (deviceId: string, key: 'back' | 'home' | 'recents'): Promise<void> =>
+  invoke('send_nav_key', { deviceId, key });
+/** 把主窗口带到前台并切到手柄键位设置。 */
+export const openGamepadSettings = (): Promise<void> => invoke('open_gamepad_settings');
+/** 保存完整的手柄键位；校验失败（不支持的键 / 重复）会抛出。 */
+export const setGamepadMap = (map: Record<string, string>): Promise<AppConfig> =>
+  invoke('set_gamepad_map', { map });
+export const setControlBarEnabled = (enabled: boolean): Promise<AppConfig> =>
+  invoke('set_control_bar_enabled', { enabled });
 
 // ── 运行环境获取（Group 4 / tasks 4.1–4.9）──
 

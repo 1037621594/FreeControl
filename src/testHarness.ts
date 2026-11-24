@@ -97,6 +97,7 @@ let config: AppConfig = {
   },
   update: { autoCheck: false, frequency: 'launch', lastCheckedAt: null },
   tray: { iconStyle: 'color', closeToTray: false },
+  control: { barEnabled: true, gamepadMap: {} },
 };
 
 let statusSequence = 1;

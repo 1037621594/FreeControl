@@ -404,6 +404,29 @@ export interface AppConfig {
    * 保存配置时不参与合并。缺省表示尚无保存几何。
    */
   window?: WindowGeometry | null;
+  /** 投屏控制条与手柄键位；后端拥有，经专用命令修改，保存配置时不参与合并。 */
+  control: ControlPrefs;
+}
+
+/**
+ * 投屏控制条偏好（后端 `controlbar::ControlPrefs`）。
+ * `gamepadMap`：手柄按钮 id → 键盘按键（`KeyboardEvent.code`），空串表示未绑定。
+ */
+export interface ControlPrefs {
+  barEnabled: boolean;
+  gamepadMap: Record<string, string>;
+}
+
+/** 控制条窗口所服务的会话对应的设备。 */
+export interface BarContext {
+  deviceId: string;
+  alias: string;
+}
+
+/** 手柄模式开关变化事件。 */
+export interface GamepadChanged {
+  deviceId: string;
+  on: boolean;
 }
 
 /** 主窗口的普通几何（物理像素）：不含最大化 / 最小化状态。 */

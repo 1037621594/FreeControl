@@ -22,6 +22,7 @@
     setUiScale,
     setUpdateFrequency,
     trayReady,
+    controlReady,
   } from '../lib/store';
   import {
     ACCENTS,
@@ -36,6 +37,7 @@
   import HelpTip from './HelpTip.svelte';
   import FontPicker from './FontPicker.svelte';
   import SettingsLogCards from './SettingsLogCards.svelte';
+  import GamepadSettings from './GamepadSettings.svelte';
   import { Check, RefreshCw } from 'lucide-svelte';
   import { DEFAULT_LANGUAGE, t, type MessageKey } from '../lib/i18n';
   import type {
@@ -300,6 +302,10 @@
       </div>
     {/if}
   </div>
+
+  {#if $controlReady}
+    <GamepadSettings />
+  {/if}
 
   <div class="card col2">
     <h3>{$t('settings.fonts.title')}</h3>

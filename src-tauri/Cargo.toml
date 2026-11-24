@@ -64,6 +64,8 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_LibraryLoader",
     # 更新重启时等旧进程结束：`OpenProcess` / `WaitForSingleObject` / `CloseHandle`。
     "Win32_System_Threading",
+    # 控制条贴合投屏窗口：`DwmGetWindowAttribute` 取不含隐形缩放边框的可见边界。
+    "Win32_Graphics_Dwm",
 ] }
 
 # 非 Windows 平台的两件小事，故按目标平台门控 —— 与上面 `windows-sys`、下面 `libc` 的写法一致：

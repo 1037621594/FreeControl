@@ -714,6 +714,9 @@ pub struct AppConfig {
     /// 主窗口上次退出时的普通几何。缺字段时按「无保存几何」处理，首次启动仍用默认尺寸。
     #[serde(default)]
     pub window: Option<WindowGeometry>,
+    /// 投屏控制条与手柄键位。字段归后端所有（前端经专用命令修改，保存配置时不参与合并）。
+    #[serde(default)]
+    pub control: crate::controlbar::ControlPrefs,
 }
 
 /// 兜底默认值与 [`AppConfig::fresh`] 保持一致：`main.rs` 在配置真的读不出来时
@@ -740,6 +743,7 @@ impl AppConfig {
             update: Update::default(),
             tray: TrayPrefs::default(),
             window: None,
+            control: crate::controlbar::ControlPrefs::default(),
         }
     }
 
@@ -935,6 +939,8 @@ pub fn load_config_from(path: &Path) -> Result<AppConfig, String> {
     cfg.update.normalize();
     // 托盘偏好归一化：未知图标样式退彩色；关闭偏好已在反序列化时按 false 兜底。
     cfg.tray.normalize();
+    // 手柄键位归一化：补齐缺失按钮，清掉未知或重复的按键。
+    cfg.control.normalize();
     // 设备排序偏好归一化：旧配置没有该段时按手动 + 登记顺序补齐。
     cfg.device_list.normalize(&cfg.devices);
     Ok(cfg)
@@ -1096,6 +1102,7 @@ fn merge_frontend_config(latest: &AppConfig, mut incoming: AppConfig) -> AppConf
     // 前端写入的托盘偏好照常合并；落盘前再归一化一次，防止手工调用命令写入未知样式。
     incoming.tray.normalize();
     merged.tray = incoming.tray;
+    // 手柄键位归后端：前端副本里的 `control` 不参与合并，沿用 `latest.clone()` 里的值。
     merged
 }
 

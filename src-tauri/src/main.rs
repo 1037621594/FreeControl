@@ -6,6 +6,7 @@
 mod scrcpy;
 mod config;
 mod apps;
+mod controlbar;
 mod files;
 mod device;
 mod wireless;
@@ -257,6 +258,13 @@ fn main() {
         // 关窗后前端还要先落盘再销毁窗口，这段期间窗口仍然存在；若此时再次启动，
         // 单例回调不能把即将退出的窗口拉回前台。
         .on_window_event(|window, event| match event {
+            // 投屏控制条（标签 `bar-*`）也是应用窗口，但与主窗口的关闭、几何记忆无关。
+            _ if window.label() != "main" => {}
+            // 控制条窗口存在时，主窗口销毁不会让进程自然退出（还有窗口），这里显式退出，
+            // 由退出流程结束所有会话与控制条。
+            tauri::WindowEvent::Destroyed => {
+                window.app_handle().exit(0);
+            }
             tauri::WindowEvent::CloseRequested { .. } => {
                 // 关窗时同步取一次：前端随后会 `destroy`，此后窗口句柄不再可读。
                 // 是否真退出由前端按关闭偏好决定，这里不置退出中 —— 收进托盘不是退出。
@@ -271,7 +279,9 @@ fn main() {
         })
         // 兜底之一：页面加载完成后仍未显示窗口（锚点选择见 `spawn_reveal_fallback`）。
         .on_page_load(|webview, payload| {
-            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+            if webview.label() == "main"
+                && payload.event() == tauri::webview::PageLoadEvent::Finished
+            {
                 spawn_reveal_fallback(
                     webview.app_handle().clone(),
                     FALLBACK_REVEAL_AFTER_LOAD,
@@ -360,7 +370,9 @@ fn main() {
                 "启动后仍未显示窗口",
             );
             // 设备状态订阅线程（tasks 6.3）：必须在 `manage` 之后启动 —— 它要读状态。
-            device::spawn_status_subscriber(handle);
+            device::spawn_status_subscriber(handle.clone());
+            // 投屏控制条与手柄键位：同样依赖已托管的状态。
+            controlbar::start(&handle);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -401,6 +413,14 @@ fn main() {
             files::pull_device_files,
             files::push_device_files,
             files::cancel_file_transfer,
+            controlbar::bar_context,
+            controlbar::get_control_support,
+            controlbar::get_gamepad_modes,
+            controlbar::set_gamepad_mode,
+            controlbar::send_nav_key,
+            controlbar::open_gamepad_settings,
+            controlbar::set_gamepad_map,
+            controlbar::set_control_bar_enabled,
             session::list_sessions,
             session::get_session_log,
             session::clear_session_log,

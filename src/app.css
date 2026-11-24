@@ -4303,6 +4303,128 @@ input.dev-cid-input {
 .fl-foot-tip {
   text-align: right;
 }
+
+/* ---------- 投屏控制条（独立小窗口，贴在 scrcpy 窗口下方） ---------- */
+#bar {
+  height: 100%;
+}
+.cb-bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+.cb-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: 0.16s;
+}
+.cb-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.cb-btn:active {
+  background: var(--accent-weak);
+}
+.cb-btn.active {
+  border-color: var(--accent-line);
+  background: var(--accent-weak);
+  color: var(--accent-text);
+}
+.cb-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+.cb-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+/* ---------- 设置页：手柄键位 ---------- */
+.gp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+}
+.gp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.gp-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gp-key {
+  flex: none;
+  min-width: 64px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-mono, inherit);
+  cursor: pointer;
+}
+.gp-key:hover {
+  border-color: var(--accent-line);
+}
+.gp-key.recording {
+  border-color: var(--accent-line);
+  background: var(--accent-weak);
+  color: var(--accent-text);
+}
+.gp-key.empty {
+  color: var(--text-faint);
+}
+.gp-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.gp-clear:hover {
+  color: var(--danger);
+}
+.gp-clear svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+}
+.gp-clear:disabled {
+  visibility: hidden;
+}
 @media (prefers-reduced-motion: reduce) {
   .dp-modal {
     transition-duration: 0.01ms;

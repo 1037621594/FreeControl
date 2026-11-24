@@ -84,7 +84,12 @@ import {
   EVENT_DEVICE_STATUS,
   EVENT_SESSION_CHANGED,
   EVENT_TRAY_QUIT,
+  EVENT_OPEN_GAMEPAD_SETTINGS,
+  setGamepadMap as setGamepadMapCmd,
+  setControlBarEnabled as setControlBarEnabledCmd,
+  getControlSupport,
 } from './api';
+import { DEFAULT_CONTROL } from './gamepad';
 import type {
   AppConfig,
   AppEntry,
@@ -252,6 +257,9 @@ const DEFAULT_TRAY: TrayPrefs = { iconStyle: 'color', closeToTray: false };
 /** 托盘是否真的可用（Windows 且创建成功才为 true）。 */
 export const trayReady = writable(false);
 
+/** 投屏控制条与手柄键位是否可用：后端只在 Windows 上实现窗口跟随与键盘钩子。 */
+export const controlReady = writable(false);
+
 function trayOf(c: AppConfig | null): TrayPrefs {
   return c?.tray ?? DEFAULT_TRAY;
 }
@@ -273,6 +281,11 @@ export async function initTray(): Promise<void> {
     trayReady.set(await getTrayStatus());
   } catch (e) {
     console.error('读取托盘状态失败', e);
+  }
+  try {
+    controlReady.set(await getControlSupport());
+  } catch (e) {
+    console.error('读取控制条支持状态失败', e);
   }
   await syncTrayMenuLabels();
 }
@@ -300,6 +313,16 @@ export async function setTrayIconStyle(iconStyle: TrayIconStyle): Promise<void> 
     scheduleSave();
     console.error('切换托盘图标失败，已恢复原样式', e);
   }
+}
+
+/** 保存手柄键位：后端校验并落盘，返回的配置整体替换前端副本；校验失败时抛出。 */
+export async function saveGamepadMap(map: Record<string, string>): Promise<void> {
+  applyConfig(await setGamepadMapCmd(map));
+}
+
+/** 投屏控制条的总开关；关闭后已显示的控制条在下一个刷新周期内消失。 */
+export async function setControlBarEnabled(enabled: boolean): Promise<void> {
+  applyConfig(await setControlBarEnabledCmd(enabled));
 }
 
 /** 关闭窗口时的行为（设置页）：改配置 → 下次关闭生效 → 去抖落盘。 */
@@ -1588,6 +1611,10 @@ export async function initApp(): Promise<void> {
   void listen(EVENT_TRAY_QUIT, () => void quitApplication()).catch((e) =>
     console.error('订阅托盘退出事件失败', e),
   );
+  // 投屏控制条上的齿轮：主窗口已被后端带到前台，这里切到设置页。
+  void listen(EVENT_OPEN_GAMEPAD_SETTINGS, () => page.set('settings')).catch((e) =>
+    console.error('订阅打开手柄设置事件失败', e),
+  );
   // 标题栏所需的两处窗口状态（app-shell 规格「自定义标题栏」）：不等它 —— 外壳先上屏，
   // 查询通常在首帧绘制之前就回来（本地 IPC），因此不会出现控件后到的跳动。
   void initWindowChrome();
@@ -1642,6 +1669,7 @@ export async function initApp(): Promise<void> {
       },
       update: DEFAULT_UPDATE,
       tray: DEFAULT_TRAY,
+      control: DEFAULT_CONTROL,
     });
   }
   try {

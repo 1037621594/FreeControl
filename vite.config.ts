@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { resolve } from 'node:path';
 
 // Tauri expects a fixed dev server port and ignores Vite's clearScreen.
 export default defineConfig({
@@ -17,5 +18,12 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    // 两个入口：主窗口 `index.html`，投屏控制条小窗口 `bar.html`。
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        bar: resolve(__dirname, 'bar.html'),
+      },
+    },
   },
 });
