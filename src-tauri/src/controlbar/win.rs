@@ -12,8 +12,7 @@ use crate::AppState;
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::ptr::{null, null_mut};
-use std::sync::atomic::Ordering;
-use std::sync::Once;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
@@ -36,11 +35,14 @@ const LLKHF_INJECTED: u32 = 0x10;
 const LLKHF_UP: u32 = 0x80;
 const WH_KEYBOARD_LL: i32 = 13;
 
-/// 一条会话的窗口对应关系，供键盘钩子判断「前台窗口属于哪台设备」。
+/// 一条会话与设备的对应关系，供键盘钩子判断「前台窗口属于哪台设备」。
+///
+/// 投屏窗口按 scrcpy 进程号匹配（该进程的任何窗口在前台都算），不依赖枚举到的窗口句柄；
+/// 控制条窗口在本进程内，按句柄匹配（0 表示还没有）。
 #[derive(Clone, Debug)]
 pub(crate) struct Tracked {
     pub device_id: String,
-    pub scrcpy: isize,
+    pub pid: u32,
     pub bar: isize,
 }
 
@@ -94,7 +96,7 @@ fn tick(app: &AppHandle, bars: &mut HashMap<u32, Bar>) {
         false
     });
 
-    let mut tracked: Vec<Tracked> = Vec::new();
+    let mut bar_of: HashMap<u32, isize> = HashMap::new();
     for s in &running {
         let Some(scrcpy) = find_window(s.pid) else {
             if let Some(bar) = bars.get_mut(&s.pid) {
@@ -114,11 +116,7 @@ fn tick(app: &AppHandle, bars: &mut HashMap<u32, Bar>) {
         if bar.hwnd == 0 {
             continue;
         }
-        tracked.push(Tracked {
-            device_id: s.device_id.clone(),
-            scrcpy,
-            bar: bar.hwnd,
-        });
+        bar_of.insert(s.pid, bar.hwnd);
 
         if bar.owner != scrcpy {
             unsafe { SetWindowLongPtrW(bar.hwnd as HWND, GWLP_HWNDPARENT, scrcpy as isize) };
@@ -157,15 +155,38 @@ fn tick(app: &AppHandle, bars: &mut HashMap<u32, Bar>) {
         set_shown(bar, true);
     }
 
+    // 跟踪表覆盖所有运行中的会话：投屏窗口暂时枚举不到或被最小化，不影响手柄模式与按键接管。
+    let tracked: Vec<Tracked> = running
+        .iter()
+        .map(|s| Tracked {
+            device_id: s.device_id.clone(),
+            pid: s.pid,
+            bar: bar_of.get(&s.pid).copied().unwrap_or(0),
+        })
+        .collect();
+
     let mut sh = shared();
     sh.tracked = tracked;
-    // 设备已没有任何会话窗口：手柄模式随之关闭，避免下次连接时意外处于开启状态。
-    let live: HashSet<String> = sh.tracked.iter().map(|t| t.device_id.clone()).collect();
-    let before = sh.gamepad_on.len();
-    sh.gamepad_on.retain(|d| live.contains(d));
-    if sh.gamepad_on.len() != before {
+    // 设备已没有运行中的会话（或控制条被总开关关闭）：手柄模式随之关闭，避免下次连接时
+    // 意外处于开启状态。关闭要通知控制条，否则按钮仍显示「开」而后端已经关了。
+    let live: HashSet<&str> = running.iter().map(|s| s.device_id.as_str()).collect();
+    let gone: Vec<String> = sh
+        .gamepad_on
+        .iter()
+        .filter(|d| !live.contains(d.as_str()))
+        .cloned()
+        .collect();
+    if !gone.is_empty() {
+        for d in &gone {
+            sh.gamepad_on.remove(d);
+        }
         sh.pressed.clear();
         GAMEPAD_ACTIVE.store(!sh.gamepad_on.is_empty(), Ordering::Relaxed);
+    }
+    drop(sh);
+    for d in gone {
+        logger::info("control", format!("设备 {d} 已无投屏会话，手柄模式自动关闭"));
+        super::emit_gamepad_changed(app, d, false);
     }
 }
 
@@ -306,21 +327,30 @@ struct KbdLlHook {
 }
 
 /// 首次开启手柄模式时才安装钩子（独立线程 + 消息循环），从不开启就不会有任何系统级钩子。
+///
+/// 安装失败不会锁死：线程退出后标记复位，下次开启手柄模式会重试。
 pub(crate) fn ensure_hook() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        std::thread::spawn(|| unsafe {
-            let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_proc), GetModuleHandleW(null()), 0);
-            if hook.is_null() {
-                logger::warn("control", "安装全局键盘钩子失败，手柄模式不可用");
-                return;
-            }
-            let mut msg: MSG = std::mem::zeroed();
-            while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
-            }
-        });
+    static RUNNING: AtomicBool = AtomicBool::new(false);
+    if RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+    std::thread::spawn(|| unsafe {
+        let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_proc), GetModuleHandleW(null()), 0);
+        if hook.is_null() {
+            logger::warn("control", "安装全局键盘钩子失败，手柄模式不可用");
+            RUNNING.store(false, Ordering::SeqCst);
+            return;
+        }
+        logger::info("control", "全局键盘钩子已安装");
+        let mut msg: MSG = std::mem::zeroed();
+        while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        RUNNING.store(false, Ordering::SeqCst);
     });
 }
 
@@ -348,11 +378,20 @@ fn handle_key(vk: u32, flags: u32) -> bool {
     if flags & LLKHF_UP != 0 {
         return sh.pressed.remove(&vk);
     }
-    let fg = unsafe { GetForegroundWindow() } as isize;
+    let Some(&key) = sh.keymap.get(code.as_str()) else {
+        return false;
+    };
+    let fg = unsafe { GetForegroundWindow() };
+    if fg.is_null() {
+        return false;
+    }
+    let mut fg_pid = 0u32;
+    unsafe { GetWindowThreadProcessId(fg, &mut fg_pid) };
+    let fg = fg as isize;
     let Some(device) = sh
         .tracked
         .iter()
-        .find(|t| t.scrcpy == fg || t.bar == fg)
+        .find(|t| t.pid == fg_pid || (t.bar != 0 && t.bar == fg))
         .map(|t| t.device_id.clone())
     else {
         return false;
@@ -360,9 +399,6 @@ fn handle_key(vk: u32, flags: u32) -> bool {
     if !sh.gamepad_on.contains(&device) {
         return false;
     }
-    let Some(&key) = sh.keymap.get(code.as_str()) else {
-        return false;
-    };
     if sh.pressed.insert(vk) {
         push_job(&device, key, true);
     }

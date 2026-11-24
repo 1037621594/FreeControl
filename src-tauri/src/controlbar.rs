@@ -271,9 +271,11 @@ pub(crate) fn push_job(device_id: &str, key: u32, gamepad: bool) {
 fn run_job(app: &AppHandle, job: &Job) {
     let state = app.state::<AppState>();
     let Some(record) = session::active_records(&state, &job.device_id).into_iter().next() else {
+        logger::warn("control", format!("设备 {} 没有运行中的会话，按键 {} 未发送", job.device_id, job.key));
         return;
     };
     let Ok(dir) = environment_dir(app) else {
+        logger::warn("control", "取运行环境目录失败，按键未发送");
         return;
     };
     let adb = dir.join(ADB_BIN);
@@ -392,8 +394,17 @@ pub fn set_gamepad_mode(app: AppHandle, device_id: String, on: bool) -> Result<(
             win::ensure_hook();
         }
     }
-    let _ = app.emit(EVENT_GAMEPAD_CHANGED, GamepadChanged { device_id, on });
+    logger::info(
+        "control",
+        format!("设备 {device_id} 手柄模式{}", if on { "开启" } else { "关闭" }),
+    );
+    emit_gamepad_changed(&app, device_id, on);
     Ok(())
+}
+
+/// 通知控制条窗口手柄模式的实际状态（后端自动关闭时也要发，保持按钮与后端一致）。
+pub(crate) fn emit_gamepad_changed(app: &AppHandle, device_id: String, on: bool) {
+    let _ = app.emit(EVENT_GAMEPAD_CHANGED, GamepadChanged { device_id, on });
 }
 
 /// 导航键：`back` / `home` / `recents`。
