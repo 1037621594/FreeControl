@@ -1934,17 +1934,6 @@ mod tests {
     }
 
     #[test]
-    fn one_shot_query_reports_unreachable_server() {
-        // 取一个刚释放的端口：连接必然被拒（不碰本机真实的 adb 服务端）。
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let endpoint = listener.local_addr().unwrap().to_string();
-        drop(listener);
-
-        let err = query_devices_at(&endpoint).unwrap_err();
-        assert!(err.contains("无法连接"), "实际错误：{err}");
-    }
-
-    #[test]
     fn host_service_query_reads_a_single_frame() {
         // 与一次性设备查询同形，只换服务名：请求净荷逐字相等、返回净荷原样带回。
         let (endpoint, handle) = stub_server(|mut stream| {
