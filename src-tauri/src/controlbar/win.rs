@@ -280,7 +280,7 @@ unsafe fn frame_rect(hwnd: isize) -> Option<RECT> {
     };
     let hr = DwmGetWindowAttribute(
         h,
-        DWMWA_EXTENDED_FRAME_BOUNDS,
+        DWMWA_EXTENDED_FRAME_BOUNDS as u32,
         &mut r as *mut RECT as *mut c_void,
         std::mem::size_of::<RECT>() as u32,
     );
