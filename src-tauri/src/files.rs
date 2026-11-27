@@ -409,7 +409,11 @@ fn pull_blocking(app: &AppHandle, req: PullRequest) -> Result<FileOpOutcome, Use
     }
     let (device, conn) = device_and_connection(app, &req.device_id)?;
     let dir = environment_dir(app)?;
-    let local_arg = local_dir.display().to_string();
+    let mut local_arg = local_dir.display().to_string();
+    // 去掉末尾的 `\`（盘符根目录 `D:\` 除外），否则 adb 会把它拼成 `D:\tt\.`。
+    while local_arg.len() > 3 && (local_arg.ends_with('\\') || local_arg.ends_with('/')) {
+        local_arg.pop();
+    }
     let mut outcome = FileOpOutcome::default();
 
     clear_canceled(&req.device_id);
@@ -423,12 +427,20 @@ fn pull_blocking(app: &AppHandle, req: PullRequest) -> Result<FileOpOutcome, Use
             outcome.conflicts.push(p.clone());
             continue;
         }
+        // 直接给出完整目标路径，避免 adb 在 Windows 上用目录参数拼接出 `D:\xx\.` 这类非法路径。
+        // 目标已存在且是目录时（覆盖文件夹），仍传父目录，让 adb 合并进去而不是多嵌套一层。
+        let target = local_dir.join(name);
+        let dest_arg = if target.is_dir() {
+            local_arg.clone()
+        } else {
+            target.display().to_string()
+        };
         let args = vec![
             "-s".to_string(),
             conn.clone(),
             "pull".to_string(),
             p.clone(),
-            local_arg.clone(),
+            dest_arg,
         ];
         let res = run_adb(&dir, &args, None, Some(req.device_id.as_str()));
         if was_canceled(&req.device_id) {
