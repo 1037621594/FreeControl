@@ -1,0 +1,76 @@
+# 仅构建 Windows x64 的快速出包工作流，用于日常自测。
+#
+# 触发：推送 `main` 自动构建，也可手动触发。
+#
+# 与 `release.yml` 的区别：
+#   - 只跑 `windows-latest` 一条腿，不构建 Linux / macOS / Windows ARM64；
+#   - 不跑单测与前端检查（推送校验由 `ci.yml` 负责）；
+#   - 不创建发行、不碰官网仓，产物只作为本次运行的 artifact 保留，到 Actions 页面下载。
+#
+# 正式出包仍走 `release.yml`。
+
+name: build-windows
+
+on:
+  # 推送 main 自动构建；纯文档类改动与 `ci.yml` 同口径，不触发。
+  push:
+    branches: [main]
+    paths-ignore:
+      - "doc/**"
+      - "openspec/**"
+      - "ui-design/**"
+      - "assets/screenshots/**"
+      - "**/*.md"
+  # 也保留手动触发，方便不推送时重跑。
+  workflow_dispatch:
+
+# 重复点击时取消还在跑的旧一次：这里只是自测产物，不值得为旧的占机器。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 构建 Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装前端依赖（锁文件驱动）
+        run: npm ci
+
+      - name: 构建（`beforeBuildCommand` 自带 `vite build`）
+        run: npm run tauri build -- --no-bundle
+
+      - name: 产物按应用版本、平台与架构命名
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $src = "src-tauri/target/release/FreeControl.exe"
+          $dst = "src-tauri/target/release/FreeControl_${version}_windows_x64.exe"
+          if (-not (Test-Path $src)) { throw "找不到构建产物 $src" }
+          Move-Item $src $dst
+          Write-Host "产物：$dst"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: FreeControl-windows-x64
+          path: src-tauri/target/release/FreeControl_*.exe
+          if-no-files-found: error
+          retention-days: 7

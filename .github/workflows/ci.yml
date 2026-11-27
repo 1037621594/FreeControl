@@ -18,14 +18,9 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "doc/**"
-      - "openspec/**"
-      - "ui-design/**"
-      - "assets/screenshots/**"
-      - "**/*.md"
+  # 推送不再自动触发校验（日常推送只跑 `build-windows.yml`），需要时手动运行。
+  # 注意：`release.yml` 的复用判定只认 push 事件的成功运行，所以出包时会现场重跑完整校验。
+  workflow_dispatch:
 
 # 同一分支上接连推送时，取消还在跑的旧一次，只保留最后一次。
 concurrency:
